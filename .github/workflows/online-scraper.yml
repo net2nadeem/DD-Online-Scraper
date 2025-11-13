@@ -1,1 +1,90 @@
+name: "Online Profile Scraper"
 
+on:
+  # Scheduled run every 15 minutes
+  schedule:
+    - cron: '*/15 * * * *'  # Every 15 minutes
+  
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      max_profiles:
+        description: 'Max Profiles (0 = unlimited)'
+        required: false
+        default: '0'
+      
+      batch_size:
+        description: 'Batch Size'
+        required: false
+        default: '10'
+
+jobs:
+  scrape-online:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14  # Must finish before next scheduled run
+    
+    steps:
+      - name: 🔄 Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: 📦 Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: 🌐 Setup Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+      
+      - name: 🔧 Install ChromeDriver
+        uses: nanasess/setup-chromedriver@v2
+      
+      - name: ✅ Verify Setup
+        run: |
+          python --version
+          pip list | grep -E "(selenium|gspread|google)"
+          google-chrome --version
+          chromedriver --version
+      
+      - name: 🌐 Run Online Scraper
+        env:
+          # DamaDam Credentials
+          DAMADAM_USERNAME: ${{ secrets.DAMADAM_USERNAME }}
+          DAMADAM_PASSWORD: ${{ secrets.DAMADAM_PASSWORD }}
+          DAMADAM_USERNAME_2: ${{ secrets.DAMADAM_USERNAME_2 }}
+          DAMADAM_PASSWORD_2: ${{ secrets.DAMADAM_PASSWORD_2 }}
+          
+          # Google Sheets
+          GOOGLE_SHEET_URL: ${{ secrets.GOOGLE_SHEET_URL }}
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          
+          # Scraper Settings
+          MAX_PROFILES_PER_RUN: ${{ github.event.inputs.max_profiles || '0' }}
+          BATCH_SIZE: ${{ github.event.inputs.batch_size || '10' }}
+          MIN_DELAY: '0.2'
+          MAX_DELAY: '0.4'
+          PAGE_LOAD_TIMEOUT: '15'
+          SHEET_WRITE_DELAY: '0.4'
+        
+        run: |
+          echo "🌐 Starting Online Scraper..."
+          echo "⏰ Run time: $(date)"
+          echo "🎯 Max profiles: $MAX_PROFILES_PER_RUN"
+          python online_scraper.py
+      
+      - name: 📊 Upload Logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: online-scraper-logs-${{ github.run_number }}
+          path: |
+            *.log
+            damadam_cookies.pkl
+          retention-days: 3
