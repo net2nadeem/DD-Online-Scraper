@@ -50,6 +50,9 @@ class SheetsManager:
                     if len(parts) > 1:
                         tail = parts[1]
                         sheet_key = tail.split("/")[0]
+                # Support passing the raw spreadsheet ID in GOOGLE_SHEET_URL
+                elif SHEET_URL and len(SHEET_URL) >= 40 and "/" not in SHEET_URL:
+                    sheet_key = SHEET_URL
                 # First attempt: by URL
                 spreadsheet = self.client.open_by_url(SHEET_URL)
             except Exception as e_url:
@@ -75,11 +78,21 @@ class SheetsManager:
                     else:
                         print(f"❌ Sheets setup failed (APIError): {api_err}")
                     return False
+                except gspread.exceptions.SpreadsheetNotFound as not_found_err:
+                    # Common when the sheet isn't shared with the service account
+                    print("❌ Sheets setup failed: Spreadsheet not found or no permission.")
+                    if sheet_key:
+                        print(f"   Parsed Spreadsheet ID: {sheet_key}")
+                    if self.service_account_email:
+                        print(f"   Share the sheet with: {self.service_account_email}")
+                    print("   Also verify the Spreadsheet ID and that the sheet exists.")
+                    return False
                 except Exception as e_key:
                     print(f"❌ Sheets setup failed: Invalid or unsupported GOOGLE_SHEET_URL: {SHEET_URL}")
                     if sheet_key:
                         print(f"   Parsed Spreadsheet ID: {sheet_key}")
-                    print(f"   Error: {e_key}")
+                    if str(e_key):
+                        print(f"   Error: {e_key}")
                     return False
 
             def get_or_create_worksheet(name, cols=None, rows=1000):
