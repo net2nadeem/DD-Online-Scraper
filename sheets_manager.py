@@ -12,10 +12,17 @@ class SheetsManager:
     def __init__(self):
         try:
             from core_scraper import client
+            from core_scraper import credentials
             self.client = client
+            # Helpful for permission diagnostics
+            try:
+                self.service_account_email = getattr(credentials, 'service_account_email', None)
+            except Exception:
+                self.service_account_email = None
         except ImportError as e:
             print(f"❌ Failed to import Google Sheets client: {e}")
             self.client = None
+            self.service_account_email = None
         self.profiles_sheet = None
         self.target_sheet = None
         self.tags_sheet = None
@@ -32,9 +39,49 @@ class SheetsManager:
                 return False
                 
             print("\n📊 Connecting to Google Sheets...")
-            
-            spreadsheet = self.client.open_by_url(SHEET_URL)
-            
+            # Validate SHEET_URL and try both open_by_url and open_by_key for robustness
+            spreadsheet = None
+            sheet_key = None
+            try:
+                # Extract spreadsheet key from URL of the form
+                # https://docs.google.com/spreadsheets/d/<KEY>/edit#gid=0
+                if SHEET_URL and "/d/" in SHEET_URL:
+                    parts = SHEET_URL.split("/d/")
+                    if len(parts) > 1:
+                        tail = parts[1]
+                        sheet_key = tail.split("/")[0]
+                # First attempt: by URL
+                spreadsheet = self.client.open_by_url(SHEET_URL)
+            except Exception as e_url:
+                # Fallback attempt by key if parsed
+                try:
+                    if sheet_key:
+                        spreadsheet = self.client.open_by_key(sheet_key)
+                    else:
+                        raise
+                except gspread.exceptions.APIError as api_err:
+                    # Provide clearer, actionable messages
+                    err_text = str(api_err)
+                    if "403" in err_text:
+                        print("❌ Sheets setup failed: 403 Forbidden - Service account lacks access to the spreadsheet.")
+                        if self.service_account_email:
+                            print(f"   Share the Google Sheet with: {self.service_account_email}")
+                        print("   Ensure the Google Sheets and Drive APIs are enabled for the project.")
+                    elif "404" in err_text:
+                        print("❌ Sheets setup failed: 404 Not Found - Spreadsheet ID/URL is invalid or not accessible.")
+                        if sheet_key:
+                            print(f"   Parsed Spreadsheet ID: {sheet_key}")
+                        print("   Verify GOOGLE_SHEET_URL and that the sheet exists.")
+                    else:
+                        print(f"❌ Sheets setup failed (APIError): {api_err}")
+                    return False
+                except Exception as e_key:
+                    print(f"❌ Sheets setup failed: Invalid or unsupported GOOGLE_SHEET_URL: {SHEET_URL}")
+                    if sheet_key:
+                        print(f"   Parsed Spreadsheet ID: {sheet_key}")
+                    print(f"   Error: {e_key}")
+                    return False
+
             def get_or_create_worksheet(name, cols=None, rows=1000):
                 try:
                     ws = spreadsheet.worksheet(name)
