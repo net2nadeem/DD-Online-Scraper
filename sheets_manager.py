@@ -10,7 +10,12 @@ from core_scraper import *
 
 class SheetsManager:
     def __init__(self):
-        self.client = client
+        try:
+            from core_scraper import client
+            self.client = client
+        except ImportError as e:
+            print(f"❌ Failed to import Google Sheets client: {e}")
+            self.client = None
         self.profiles_sheet = None
         self.target_sheet = None
         self.tags_sheet = None
@@ -22,6 +27,10 @@ class SheetsManager:
     def setup(self):
         """Setup sheets"""
         try:
+            if self.client is None:
+                print("❌ Google Sheets client not available")
+                return False
+                
             print("\n📊 Connecting to Google Sheets...")
             
             spreadsheet = self.client.open_by_url(SHEET_URL)
@@ -66,6 +75,9 @@ class SheetsManager:
         
         except Exception as e:
             print(f"❌ Sheets setup failed: {e}")
+            print(f"   Error type: {type(e).__name__}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def format_profiles_sheet(self):

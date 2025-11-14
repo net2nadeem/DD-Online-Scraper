@@ -245,14 +245,36 @@ def calculate_eta(processed, total, start_time):
 
 print("\n🔑 Initializing Google Sheets...")
 try:
+    if not GOOGLE_CREDENTIALS_RAW:
+        raise ValueError("GOOGLE_CREDENTIALS_JSON environment variable is empty")
+    
+    if not SHEET_URL:
+        raise ValueError("GOOGLE_SHEET_URL environment variable is empty")
+    
     scope = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
+    
+    print("  📋 Parsing credentials...")
     creds_json = json.loads(GOOGLE_CREDENTIALS_RAW)
+    
+    print("  🔐 Creating credentials...")
     credentials = Credentials.from_service_account_info(creds_json, scopes=scope)
+    
+    print("  🌐 Authorizing client...")
     client = gspread.authorize(credentials)
+    
     print(f"✅ Authorized: {credentials.service_account_email}")
+except json.JSONDecodeError as e:
+    print(f"❌ Invalid JSON in GOOGLE_CREDENTIALS_JSON: {e}")
+    sys.exit(1)
+except ValueError as e:
+    print(f"❌ Configuration error: {e}")
+    sys.exit(1)
 except Exception as e:
     print(f"❌ Google Sheets authorization failed: {e}")
+    print(f"   Error type: {type(e).__name__}")
+    import traceback
+    traceback.print_exc()
     sys.exit(1)
