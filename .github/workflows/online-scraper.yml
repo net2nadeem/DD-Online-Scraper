@@ -1,9 +1,9 @@
 name: "Online Profile Scraper"
 
 on:
-  # Scheduled run every 15 minutes
+  # Scheduled run every 30 minutes
   schedule:
-    - cron: '*/15 * * * *'  # Every 15 minutes
+    - cron: '*/30 * * * *'  # Every 30 minutes
   
   # Manual trigger
   workflow_dispatch:
@@ -16,12 +16,12 @@ on:
       batch_size:
         description: 'Batch Size'
         required: false
-        default: '10'
+        default: '20'
 
 jobs:
   scrape-online:
     runs-on: ubuntu-latest
-    timeout-minutes: 14  # Must finish before next scheduled run
+    timeout-minutes: 29  # Must finish before next scheduled run
     
     steps:
       - name: 🔄 Checkout Repository
@@ -67,11 +67,11 @@ jobs:
           
           # Scraper Settings
           MAX_PROFILES_PER_RUN: ${{ github.event.inputs.max_profiles || '0' }}
-          BATCH_SIZE: ${{ github.event.inputs.batch_size || '10' }}
-          MIN_DELAY: '0.2'
-          MAX_DELAY: '0.4'
-          PAGE_LOAD_TIMEOUT: '15'
-          SHEET_WRITE_DELAY: '0.4'
+          BATCH_SIZE: ${{ github.event.inputs.batch_size || '20' }}
+          MIN_DELAY: '0.3'
+          MAX_DELAY: '0.5'
+          PAGE_LOAD_TIMEOUT: '25'
+          SHEET_WRITE_DELAY: '0.9'
         
         run: |
           echo "🌐 Starting Online Scraper..."
